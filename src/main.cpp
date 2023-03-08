@@ -1,11 +1,12 @@
-#include <Windows.h>
 #include "SimpleIni.h"
+#include <Windows.h>
 using namespace RE;
 
 #pragma region Utilities
 
 char tempbuf[8192] = { 0 };
-char* _MESSAGE(const char* fmt, ...) {
+char* _MESSAGE(const char* fmt, ...)
+{
 	va_list args;
 
 	va_start(args, fmt);
@@ -16,7 +17,8 @@ char* _MESSAGE(const char* fmt, ...) {
 	return tempbuf;
 }
 
-void Dump(const void* mem, unsigned int size) {
+void Dump(const void* mem, unsigned int size)
+{
 	const char* p = static_cast<const char*>(mem);
 	unsigned char* up = (unsigned char*)p;
 	std::stringstream stream;
@@ -25,14 +27,14 @@ void Dump(const void* mem, unsigned int size) {
 		stream << std::setfill('0') << std::setw(2) << std::hex << (int)up[i] << " ";
 		if (i % 8 == 7) {
 			stream << "\t0x"
-				<< std::setw(2) << std::hex << (int)up[i]
-				<< std::setw(2) << (int)up[i - 1]
-				<< std::setw(2) << (int)up[i - 2]
-				<< std::setw(2) << (int)up[i - 3]
-				<< std::setw(2) << (int)up[i - 4]
-				<< std::setw(2) << (int)up[i - 5]
-				<< std::setw(2) << (int)up[i - 6]
-				<< std::setw(2) << (int)up[i - 7] << std::setfill('0');
+				   << std::setw(2) << std::hex << (int)up[i]
+				   << std::setw(2) << (int)up[i - 1]
+				   << std::setw(2) << (int)up[i - 2]
+				   << std::setw(2) << (int)up[i - 3]
+				   << std::setw(2) << (int)up[i - 4]
+				   << std::setw(2) << (int)up[i - 5]
+				   << std::setw(2) << (int)up[i - 6]
+				   << std::setw(2) << (int)up[i - 7] << std::setfill('0');
 			stream << "\t0x" << std::setw(2) << std::hex << row * 8 << std::setfill('0');
 			_MESSAGE("%s", stream.str().c_str());
 			stream.str(std::string());
@@ -41,8 +43,9 @@ void Dump(const void* mem, unsigned int size) {
 	}
 }
 
-template<class Ty>
-Ty SafeWrite64Function(uintptr_t addr, Ty data) {
+template <class Ty>
+Ty SafeWrite64Function(uintptr_t addr, Ty data)
+{
 	DWORD oldProtect;
 	void* _d[2];
 	memcpy(_d, &data, sizeof(data));
@@ -83,12 +86,13 @@ Setting* TPAimFOV;
 Setting* FPFOV;
 TESIdleForm* FPSighted;
 
-void SightEnter() {
+void SightEnter()
+{
 	if (!p->currentProcess)
 		return;
 	BSTArray<EquippedItem>& equipped = p->currentProcess->middleHigh->equippedItems;
-	if (equipped.size() == 0 || !equipped[0].item.instanceData || 
-		((TESObjectWEAP::InstanceData*)equipped[0].item.instanceData.get())->type != 9)
+	if (equipped.size() == 0 || !equipped[0].item.instanceData ||
+		((TESObjectWEAP::InstanceData*)equipped[0].item.instanceData.get())->type != WEAPON_TYPE::kGun)
 		return;
 
 	if (pcam->currentState == pcam->cameraStates[CameraState::k3rdPerson]) {
@@ -108,12 +112,13 @@ void SightEnter() {
 	}
 }
 
-void SightExit(bool switchCam = true) {
+void SightExit(bool switchCam = true)
+{
 	if (!p->currentProcess)
 		return;
 	BSTArray<EquippedItem>& equipped = p->currentProcess->middleHigh->equippedItems;
 	if (equipped.size() == 0 || !equipped[0].item.instanceData ||
-		((TESObjectWEAP::InstanceData*)equipped[0].item.instanceData.get())->type != 9)
+		((TESObjectWEAP::InstanceData*)equipped[0].item.instanceData.get())->type != WEAPON_TYPE::kGun)
 		return;
 
 	if (switchCam) {
@@ -124,27 +129,26 @@ void SightExit(bool switchCam = true) {
 }
 
 using std::unordered_map;
-class AnimationGraphEventWatcher {
+class AnimationGraphEventWatcher
+{
 public:
-	typedef BSEventNotifyControl (AnimationGraphEventWatcher::* FnProcessEvent)(BSAnimationGraphEvent& evn, BSTEventSource<BSAnimationGraphEvent>* dispatcher);
+	typedef BSEventNotifyControl (AnimationGraphEventWatcher::*FnProcessEvent)(BSAnimationGraphEvent& evn, BSTEventSource<BSAnimationGraphEvent>* dispatcher);
 
-	BSEventNotifyControl HookedProcessEvent(BSAnimationGraphEvent& evn, BSTEventSource<BSAnimationGraphEvent>* src) {
+	BSEventNotifyControl HookedProcessEvent(BSAnimationGraphEvent& evn, BSTEventSource<BSAnimationGraphEvent>* src)
+	{
 		if (!PUBGMode) {
 			if (evn.animEvent == std::string("sightedStateEnter")) {
 				SightEnter();
-			}
-			else if (aiming) {
-				if ((p->gunState != 6 && p->gunState != 8) && *ptr_engineTime - timer_sightEnter > 5000) {
+			} else if (aiming) {
+				if ((p->gunState != GUN_STATE::kSighted && p->gunState != GUN_STATE::kFireSighted) && *ptr_engineTime - timer_sightEnter > 5000) {
 					SightExit();
 				}
 			}
-		}
-		else {
+		} else {
 			if (aiming) {
-				if (p->gunState == 0x4) { //Reloading
+				if (p->gunState == GUN_STATE::kReloading) {  //Reloading
 					SightExit();
-				}
-				else if (p->gunState == 0 && pcam->currentState == pcam->cameraStates[CameraState::kFirstPerson]) {
+				} else if (p->gunState == GUN_STATE::kDrawn && pcam->currentState == pcam->cameraStates[CameraState::kFirstPerson]) {
 					if (p->currentProcess) {
 						p->SetInIronSightsImpl(false);
 						p->currentProcess->PlayIdle(p, 0x35, FPSighted);
@@ -157,7 +161,7 @@ public:
 				pcam->fovAdjustCurrent = pcam->fovAdjustTarget;
 				*(float*)((uintptr_t)pcam->cameraStates[CameraState::kFirstPerson].get() + 0x78) = 1.0f;
 			}
-			if (p->gunState == 0x7) { //Grenade throw?
+			if (p->gunState == GUN_STATE::kThrowing) {  //Grenade throw?
 				SightExit();
 			}
 		}
@@ -165,7 +169,8 @@ public:
 		return fn ? (this->*fn)(evn, src) : BSEventNotifyControl::kContinue;
 	}
 
-	void HookSink() {
+	void HookSink()
+	{
 		uint64_t vtable = *(uint64_t*)this;
 		auto it = fnHash.find(vtable);
 		if (it == fnHash.end()) {
@@ -174,7 +179,8 @@ public:
 		}
 	}
 
-	void UnHookSink() {
+	void UnHookSink()
+	{
 		uint64_t vtable = *(uint64_t*)this;
 		auto it = fnHash.find(vtable);
 		if (it == fnHash.end())
@@ -188,11 +194,13 @@ protected:
 };
 unordered_map<uint64_t, AnimationGraphEventWatcher::FnProcessEvent> AnimationGraphEventWatcher::fnHash;
 
-class InputEventReceiverOverride : public BSInputEventReceiver {
+class InputEventReceiverOverride : public BSInputEventReceiver
+{
 public:
-	typedef void (InputEventReceiverOverride::* FnPerformInputProcessing)(const InputEvent* a_queueHead);
+	typedef void (InputEventReceiverOverride::*FnPerformInputProcessing)(const InputEvent* a_queueHead);
 
-	void ProcessButtonEvent(const ButtonEvent* evn) {
+	void ProcessButtonEvent(const ButtonEvent* evn)
+	{
 		if (waitSprint && p->moveMode & 32 && *ptr_engineTime - timer_sightExit > 5000) {
 			pcam->SetState(pcam->cameraStates[CameraState::k3rdPerson].get());
 			waitSprint = false;
@@ -219,8 +227,7 @@ public:
 					if (it->inputKey != 255) {
 						if (it->eventID == std::string("SecondaryAttack")) {
 							zoomKey = it->inputKey + 256;
-						}
-						else if (it->eventID == std::string("Sprint")) {
+						} else if (it->eventID == std::string("Sprint")) {
 							sprintKey = it->inputKey + 256;
 						}
 					}
@@ -231,8 +238,7 @@ public:
 					if (it->inputKey != 255) {
 						if (it->eventID == std::string("SecondaryAttack")) {
 							zoomKey = it->inputKey;
-						}
-						else if (it->eventID == std::string("Sprint")) {
+						} else if (it->eventID == std::string("Sprint")) {
 							sprintKey = it->inputKey;
 						}
 					}
@@ -244,15 +250,13 @@ public:
 			if (id == zoomKey && evn->value == 0) {
 				SightEnter();
 			}
-		}
-		else {
+		} else {
 			if ((id == zoomKey && evn->value == 0) || id == sprintKey) {
 				if (pcam->currentState == pcam->cameraStates[CameraState::kFirstPerson]) {
 					if (id == sprintKey) {
 						waitSprint = true;
 						SightExit(false);
-					}
-					else {
+					} else {
 						SightExit();
 					}
 				}
@@ -263,7 +267,8 @@ public:
 			ProcessButtonEvent((ButtonEvent*)evn->next);
 	}
 
-	void HookedPerformInputProcessing(const InputEvent* a_queueHead) {
+	void HookedPerformInputProcessing(const InputEvent* a_queueHead)
+	{
 		if (PUBGMode && !UI::GetSingleton()->menuMode && a_queueHead) {
 			ProcessButtonEvent((ButtonEvent*)a_queueHead);
 		}
@@ -273,7 +278,8 @@ public:
 		}
 	}
 
-	void HookSink() {
+	void HookSink()
+	{
 		uint64_t vtable = *(uint64_t*)this;
 		auto it = fnHash.find(vtable);
 		if (it == fnHash.end()) {
@@ -282,7 +288,8 @@ public:
 		}
 	}
 
-	void UnHookSink() {
+	void UnHookSink()
+	{
 		uint64_t vtable = *(uint64_t*)this;
 		auto it = fnHash.find(vtable);
 		if (it == fnHash.end())
@@ -296,7 +303,8 @@ protected:
 };
 unordered_map<uint64_t, InputEventReceiverOverride::FnPerformInputProcessing> InputEventReceiverOverride::fnHash;
 
-void InitializePlugin() {
+void InitializePlugin()
+{
 	p = PlayerCharacter::GetSingleton();
 	((AnimationGraphEventWatcher*)((uint64_t)p + 0x38))->HookSink();
 	pcam = PlayerCamera::GetSingleton();
@@ -304,19 +312,19 @@ void InitializePlugin() {
 	_MESSAGE("PlayerCharacter %llx", p);
 	_MESSAGE("PlayerCamera %llx", pcam);
 	for (auto it = INISettingCollection::GetSingleton()->settings.begin(); it != INISettingCollection::GetSingleton()->settings.end(); ++it) {
-		if (strcmp((*it)->_key, "f3rdPersonAimFOV:Camera") == 0) {
+		if ((*it)->GetKey().compare("f3rdPersonAimFOV:Camera"sv) == 0) {
 			TPAimFOV = *it;
-			_MESSAGE("Setting %s", (*it)->_key);
-		}
-		else if (strcmp((*it)->_key, "fDefault1stPersonFOV:Display") == 0) {
+			_MESSAGE("Setting %s", (*it)->GetKey());
+		} else if ((*it)->GetKey().compare("fDefault1stPersonFOV:Display"sv) == 0) {
 			FPFOV = *it;
-			_MESSAGE("Setting %s", (*it)->_key);
+			_MESSAGE("Setting %s", (*it)->GetKey());
 		}
 	}
 	FPSighted = (TESIdleForm*)TESForm::GetFormByID(0x4D32);
 }
 
-void LoadConfigs() {
+void LoadConfigs()
+{
 	ini.LoadFile("Data\\F4SE\\Plugins\\PUBGAiming.ini");
 	PUBGMode = std::stoi(ini.GetValue("General", "PUBGMode", "1")) > 0;
 	tapTimeout = std::stof(ini.GetValue("General", "TapTimeout", "0.12"));
@@ -325,7 +333,8 @@ void LoadConfigs() {
 	defaultSprintKey = std::stoi(ini.GetValue("General", "DefaultSprintKey", "0xa0"), 0, 16);
 }
 
-void ResetValues() {
+void ResetValues()
+{
 	aiming = false;
 	waitSprint = false;
 }
@@ -361,7 +370,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Query(const F4SE::QueryInterface* a
 	a_info->version = Version::MAJOR;
 
 	if (a_f4se->IsEditor()) {
-		logger::critical("loaded in editor"sv);
+		logger::critical(FMT_STRING("loaded in editor"));
 		return false;
 	}
 
@@ -383,8 +392,7 @@ extern "C" DLLEXPORT bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadInterface* a_f
 		if (msg->type == F4SE::MessagingInterface::kGameDataReady) {
 			InitializePlugin();
 			LoadConfigs();
-		}
-		else if (msg->type == F4SE::MessagingInterface::kPreLoadGame) {
+		} else if (msg->type == F4SE::MessagingInterface::kPreLoadGame) {
 			ResetValues();
 			LoadConfigs();
 		}
